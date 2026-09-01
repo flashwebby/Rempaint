@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/konva@9.3.18/konva.min.js"></script>
+    <script type="module" src="./main.js"></script>
+  </head>
+
+  <body>
+    <!-- Top Nav & Ribbon -->
+    <header class="app-header">
+      <!-- Title Bar Menu -->
+      <div class="title-bar-menu">
+        <div class="menu-tabs">
+          <span class="app-brand">
+            <img src="assets/Rempaint.png" alt="Rempaint" class="brand-logo-img" onerror="this.onerror=null; this.src='assets/logo.png';" />
+            Rempaint
+          </span>
+          <div class="menu-tab-container" id="file-menu-container">
+            <span class="menu-tab" id="menu-tab-file" tabindex="0">File</span>
+            <div class="dropdown-menu hidden" id="file-dropdown-menu">
+              <button type="button" class="dropdown-item" id="menu-file-new">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                <span>New Project</span>
+                <kbd>Ctrl+N</kbd>
+              </button>
+              <button type="button" class="dropdown-item" id="menu-file-open">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>Open Project (.rko)...</span>
+                <kbd>Ctrl+O</kbd>
+              </button>
+              <button type="button" class="dropdown-item" id="menu-file-save">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span>Save Project</span>
+                <kbd>Ctrl+S</kbd>
+              </button>
+              <button type="button" class="dropdown-item" id="menu-file-save-as">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span>Save Project As...</span>
+                <kbd>Ctrl+Shift+S</kbd>
+              </button>
+              <div class="dropdown-divider"></div>
+              <button type="button" class="dropdown-item" id="menu-file-export">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Export as PNG...</span>
+                <kbd>Ctrl+E</kbd>
+              </button>
+            </div>
+          </div>
+          <span class="menu-tab">Edit</span>
+          <span class="menu-tab active">View</span>
+        </div>
+        <div class="quick-access">
+          <button class="action-btn icon-btn" title="Save" id="btn-save">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          </button>
+          <button class="action-btn icon-btn" title="Export PNG" id="btn-export">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          </button>
+          <button class="action-btn icon-btn" title="Undo (Ctrl+Z)" id="btn-undo" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+          </button>
+          <button class="action-btn icon-btn" title="Redo (Ctrl+Y)" id="btn-redo" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          </button>
+          <button class="action-btn icon-btn danger" title="Clear Canvas" id="btn-clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Ribbon Container -->
+      <div class="ribbon">
+        
+        <!-- Image & Selection -->
+        <div class="ribbon-group">
+          <div class="ribbon-row">
+            <div class="selection-tools-column">
+              <button class="tool-btn ribbon-btn-compact active" id="tool-select-rect" data-tool="select-rect" title="Rectangular Selection (V / M)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-dasharray="4 4"></rect></svg>
+                <span>Rect Select</span>
+              </button>
+              <button class="tool-btn ribbon-btn-compact" id="tool-select-lasso" data-tool="select-lasso" title="Free-form Selection (Shift+L)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12c0-5 3-9 8-9s8 3 8 7c0 5-5 8-8 10l-2 1-3-3c-2-2-3-4-3-6z" stroke-dasharray="3 3"></path></svg>
+                <span>Free-form</span>
+              </button>
+              <button class="action-btn ribbon-btn-compact" id="btn-deselect-all" title="Deselect / Clear Ghost Marquee & Selections (Esc)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <span>Deselect</span>
+              </button>
+            </div>
+            <div class="ribbon-col-small">
+              <div class="ribbon-actions-row">
+                <button class="action-btn icon-btn" title="Rotate 90° Clockwise" id="btn-rotate-right">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><polyline points="21 3 21 8 16 8"></polyline></svg>
+                </button>
+                <button class="action-btn icon-btn" title="Rotate 90° Counter-Clockwise" id="btn-rotate-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+                </button>
+                <button class="action-btn icon-btn" title="Flip Horizontal" id="btn-flip-h">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 17 2 12 7 7"></polyline><polyline points="17 17 22 12 17 7"></polyline><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="2 2"></line></svg>
+                </button>
+                <button class="action-btn icon-btn" title="Flip Vertical" id="btn-flip-v">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 7 12 2 7 7"></polyline><polyline points="17 17 12 22 7 17"></polyline><line x1="2" y1="12" x2="22" y2="12" stroke-dasharray="2 2"></line></svg>
+                </button>
+              </div>
+              <button class="action-btn ribbon-btn-small" title="Delete Selected" id="btn-delete" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                <span>Delete</span>
+              </button>
+              <button class="action-btn ribbon-btn-small" title="Open image" id="btn-open-image">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="8" cy="9" r="1.5"></circle><path d="m4 17 5-5 3 3 2-2 6 6"></path></svg>
+                <span>Open</span>
+              </button>
+            </div>
+            <div class="ribbon-col-small image-opacity-col">
+              <div class="ribbon-opacity-control" title="Adjust Selected Image / Shape Opacity">
+                <div class="opacity-label-row">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#38bdf8" stroke-width="2.2">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                  </svg>
+                  <span>Opacity</span>
+                  <span id="ribbon-image-opacity-val">100%</span>
+                </div>
+                <input type="range" id="ribbon-image-opacity" min="5" max="100" value="100" step="1" class="ribbon-opacity-slider" title="Opacity" />
+              </div>
+            </div>
+          </div>
+          <div class="group-label">Image</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Tools -->
+        <div class="ribbon-group">
+          <div class="tools-grid">
+            <button class="tool-btn active" id="tool-pen" data-tool="pen" title="Pencil (P)">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <polygon points="1,23 3,16 8,21" fill="#333333"/>
+                <polygon points="3,16 8,21 9,18 6,15" fill="#e5a65d"/>
+                <polygon points="6,15 9,18 19,8 16,5" fill="#facc15"/>
+                <polygon points="16,5 19,8 21,6 18,3" fill="#cbd5e1"/>
+                <polygon points="18,3 21,6 23,4 20,1" fill="#f43f5e"/>
+                <polygon points="1,23 2,21 3,22" fill="#111111"/>
+              </svg>
+            </button>
+            <button class="tool-btn" id="tool-eraser" data-tool="eraser" title="Eraser (E)">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <polygon points="2,20 12,20 18,14 8,14" fill="#ffffff" stroke="#475569" stroke-width="1"/>
+                <polygon points="8,14 18,14 22,10 12,10" fill="#fb7185" stroke="#475569" stroke-width="1"/>
+                <polygon points="12,10 22,10 20,6 10,6" fill="#f43f5e" stroke="#475569" stroke-width="1"/>
+                <polygon points="2,20 8,14 12,10 4,10 0,16" fill="#cbd5e1" stroke="#475569" stroke-width="1"/>
+              </svg>
+            </button>
+            <button class="tool-btn" id="tool-fill" data-tool="fill" title="Fill with color (Paint Bucket)">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path d="M19 11L11 3L3 11L11 19L19 11Z" fill="#3b82f6" stroke="#1d4ed8" stroke-width="1.2"/>
+                <path d="M11 3L19 11L15 15L7 7L11 3Z" fill="#93c5fd"/>
+                <path d="M1 21C1 21 0 17 3 15C6 17 5 21 5 21" fill="#2563eb" stroke="#1d4ed8" stroke-width="1"/>
+                <circle cx="2" cy="22" r="1.5" fill="#2563eb"/>
+              </svg>
+            </button>
+            <button class="tool-btn" id="tool-picker" data-tool="picker" title="Color picker (Eyedropper)">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path d="M1 23L4 17L7 20L1 23Z" fill="#1e293b"/>
+                <path d="M4 17L14 7L17 10L7 20L4 17Z" fill="#f8fafc" stroke="#334155" stroke-width="1"/>
+                <path d="M14 7L16 5L19 8L17 10L14 7Z" fill="#94a3b8"/>
+                <path d="M16 5L19 2C20.5 0.5 23.5 3.5 22 5L19 8L16 5Z" fill="#ef4444" stroke="#b91c1c" stroke-width="1"/>
+              </svg>
+            </button>
+            <button class="tool-btn" id="tool-text" data-tool="text" title="Text (T)">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <text x="3" y="19" font-family="'Times New Roman', serif, Georgia" font-weight="bold" font-size="22" fill="#0078d4">A</text>
+              </svg>
+            </button>
+            <button class="tool-btn" id="tool-math-text" data-tool="math-text" title="Math Text (LaTeX) — Shift+T">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <text x="3" y="19" font-family="'Cambria Math', 'Times New Roman', serif" font-weight="bold" font-size="20" fill="#a855f7">∑</text>
+              </svg>
+            </button>
+            <button class="tool-btn" id="tool-magnifier" data-tool="magnifier" title="Magnifier (Zoom in/out)">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <circle cx="10" cy="10" r="7" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+                <path d="M15 15L22 22" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M7 10H13M10 7V13" stroke="#0284c7" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          <div class="group-label">Tools</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Shapes -->
+        <div class="ribbon-group">
+          <div class="shapes-gallery-container">
+            <div class="shapes-grid" aria-label="Shapes gallery">
+              <button class="tool-btn shape-btn" data-tool="line" title="Line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"></line></svg></button>
+              <button class="tool-btn shape-btn" data-tool="curve" title="Curve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17c5-12 10 12 18-10"></path></svg></button>
+              <button class="tool-btn shape-btn" data-tool="ellipse" title="Oval"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="6"></ellipse></svg></button>
+              <button class="tool-btn shape-btn" data-tool="rectangle" title="Rectangle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12"></rect></svg></button>
+              <button class="tool-btn shape-btn" data-tool="rounded-rectangle" title="Rounded rectangle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="3"></rect></svg></button>
+              <button class="tool-btn shape-btn" data-tool="polygon" title="Polygon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="8,4 17,5 21,13 14,20 5,17 3,9"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="triangle" title="Triangle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 4 4 20 20 20"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="right-triangle" title="Right triangle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,5 5,19 19,19"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="diamond" title="Diamond"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 4 4 12 12 20 20 12"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="pentagon" title="Pentagon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 21,10 17,20 7,20 3,10"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="hexagon" title="Hexagon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="8,4 16,4 21,12 16,20 8,20 3,12"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="arrow" title="Right arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 9 13 9 13 5 21 12 13 19 13 15 5 15"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="left-arrow" title="Left arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19,9 11,9 11,5 3,12 11,19 11,15 19,15"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="up-arrow" title="Up arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="9,19 9,11 5,11 12,3 19,11 15,11 15,19"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="down-arrow" title="Down arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="9,5 9,13 5,13 12,21 19,13 15,13 15,5"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="four-star" title="Four-point star"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 14,10 21,12 14,14 12,21 10,14 3,12 10,10"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="star" title="Five-point star"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 14.8,9 21,9.8 16.3,14.2 17.5,20.5 12,17.4 6.5,20.5 7.7,14.2 3,9.8 9.2,9"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="six-star" title="Six-point star"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 15,9 21,9 17,13 19,20 12,16 5,20 7,13 3,9 9,9"></polygon></svg></button>
+              <button class="tool-btn shape-btn" data-tool="callout" title="Rectangular callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H11l-5 4v-4H4z"></path></svg></button>
+              <button class="tool-btn shape-btn" data-tool="speech" title="Rounded callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5h14a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-7l-5 4v-4H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3z"></path></svg></button>
+              <button class="tool-btn shape-btn" data-tool="cloud" title="Cloud callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17h11a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 8.1 4.5 4.5 0 0 0 6 17z"></path></svg></button>
+            </div>
+            <div class="group-label">Shapes</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Useful Tools Group (5 Parametric Generators) -->
+        <div class="ribbon-group useful-tools-group">
+          <div class="useful-tools-grid">
+            <button class="tool-btn useful-tool-card" id="btn-new-number-line" title="Insert Parametric Number Line">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                <line x1="2" y1="12" x2="22" y2="12" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+                <polyline points="5,8 2,12 5,16" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+                <polyline points="19,8 22,12 19,16" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+                <line x1="8" y1="8" x2="8" y2="16" stroke="#94a3b8" stroke-width="1.5"/>
+                <line x1="12" y1="5" x2="12" y2="19" stroke="#f43f5e" stroke-width="2"/>
+                <line x1="16" y1="8" x2="16" y2="16" stroke="#94a3b8" stroke-width="1.5"/>
+              </svg>
+              <span>Number Line</span>
+            </button>
+            <button class="tool-btn useful-tool-card" id="btn-insert-graph" title="Insert Graph (Desmos Calculator)">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#a855f7" stroke-width="2">
+                <line x1="3" y1="20" x2="21" y2="20"></line>
+                <line x1="4" y1="3" x2="4" y2="21"></line>
+                <path d="M4 16c4-4 8-12 12-6s4 6 5 2" stroke="#ec4899"></path>
+              </svg>
+              <span>Graph</span>
+            </button>
+            <button class="tool-btn useful-tool-card" id="btn-new-fixed-circle" title="Insert Circle with Fixed Radius">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#3b82f6" stroke-width="2"/>
+                <line x1="12" y1="12" x2="21" y2="12" stroke="#f43f5e" stroke-width="1.8" stroke-linecap="round"/>
+                <circle cx="12" cy="12" r="1.5" fill="#f43f5e"/>
+              </svg>
+              <span>Fixed Circle</span>
+            </button>
+            <button class="tool-btn useful-tool-card" id="btn-new-angle" title="Insert Parametric Angle">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                <line x1="4" y1="20" x2="20" y2="20" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+                <line x1="4" y1="20" x2="17" y2="7" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 20a8 8 0 0 0-3-5" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <span>Angle</span>
+            </button>
+            <button class="tool-btn useful-tool-card" id="btn-new-gear" title="Insert Parametric Gear">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" fill="#f59e0b" fill-opacity="0.2"/>
+                <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"/>
+              </svg>
+              <span>Gear</span>
+            </button>
+          </div>
+          <div class="group-label">Useful Tools</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Shape styling -->
+        <div class="ribbon-group shape-style-group">
+          <div class="shape-style-controls">
+            <label>Outline<select id="shape-outline" title="Shape outline"><option value="color1">Colour 1</option><option value="color2">Colour 2</option><option value="none">No outline</option></select></label>
+            <label>Fill<select id="shape-fill" title="Shape fill"><option value="none">No fill</option><option value="color2">Colour 2</option><option value="color1">Colour 1</option></select></label>
+          </div>
+          <div class="group-label">Style</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Size / Stroke Width -->
+        <div class="ribbon-group">
+          <div class="size-control">
+            <div class="stroke-preview-box">
+              <div class="stroke-preview-line" id="stroke-preview-line"></div>
+            </div>
+            <input type="range" id="stroke-width" min="1" max="50" value="4" title="Stroke Width" />
+            <span id="stroke-width-val">4px</span>
+          </div>
+          <div class="group-label">Size</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Colors -->
+        <div class="ribbon-group colors-group">
+          <div class="color-slots">
+            <div class="color-slot active" id="slot-color-1" data-slot="1" title="Color 1 (Foreground / Primary)">
+              <div class="slot-circle" id="color-1-preview" style="background-color: #000000;"></div>
+              <span class="slot-label">Color 1</span>
+            </div>
+            <div class="color-slot" id="slot-color-2" data-slot="2" title="Color 2 (Background / Secondary)">
+              <div class="slot-circle" id="color-2-preview" style="background-color: #ffffff;"></div>
+              <span class="slot-label">Color 2</span>
+            </div>
+          </div>
+          <div class="palette-grid">
+            <button class="palette-dot" data-color="#000000" style="background-color: #000000;"></button>
+            <button class="palette-dot" data-color="#7f7f7f" style="background-color: #7f7f7f;"></button>
+            <button class="palette-dot" data-color="#880015" style="background-color: #880015;"></button>
+            <button class="palette-dot" data-color="#ed1c24" style="background-color: #ed1c24;"></button>
+            <button class="palette-dot" data-color="#ff7f27" style="background-color: #ff7f27;"></button>
+            <button class="palette-dot" data-color="#fff200" style="background-color: #fff200;"></button>
+            <button class="palette-dot" data-color="#22b14c" style="background-color: #22b14c;"></button>
+            <button class="palette-dot" data-color="#00a2e8" style="background-color: #00a2e8;"></button>
+            <button class="palette-dot" data-color="#3f48cc" style="background-color: #3f48cc;"></button>
+            <button class="palette-dot" data-color="#a349a4" style="background-color: #a349a4;"></button>
+
+            <button class="palette-dot" data-color="#ffffff" style="background-color: #ffffff;"></button>
+            <button class="palette-dot" data-color="#c3c3c3" style="background-color: #c3c3c3;"></button>
+            <button class="palette-dot" data-color="#b97a57" style="background-color: #b97a57;"></button>
+            <button class="palette-dot" data-color="#ffaec9" style="background-color: #ffaec9;"></button>
+            <button class="palette-dot" data-color="#ffc90e" style="background-color: #ffc90e;"></button>
+            <button class="palette-dot" data-color="#efe4b0" style="background-color: #efe4b0;"></button>
+            <button class="palette-dot" data-color="#b5e61d" style="background-color: #b5e61d;"></button>
+            <button class="palette-dot" data-color="#99d9ea" style="background-color: #99d9ea;"></button>
+            <button class="palette-dot" data-color="#7092be" style="background-color: #7092be;"></button>
+            <button class="palette-dot" data-color="#c8bfe7" style="background-color: #c8bfe7;"></button>
+          </div>
+          <div class="edit-colors-wrapper">
+             <input type="color" id="stroke-color" value="#000000" aria-label="Custom Color Picker" />
+             <div class="edit-colors-btn" title="Edit Colors">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="4"></circle>
+               </svg>
+               <span>Edit<br/>colors</span>
+             </div>
+          </div>
+          <div class="group-label">Colors</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Layers -->
+        <div class="ribbon-group">
+          <div class="ribbon-btn-column">
+            <button class="ribbon-big-btn active" id="btn-toggle-layers" title="Toggle Layers Panel (F7)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              <span>Layers</span>
+            </button>
+          </div>
+          <div class="group-label">Layers</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- Settings -->
+        <div class="ribbon-group">
+          <div class="ribbon-btn-column">
+            <button class="ribbon-big-btn" id="btn-settings" title="Settings & API Key">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Settings</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+      
+      <div class="ribbon-scroll-arrow ribbon-scroll-left hidden" id="ribbon-scroll-left" title="Scroll Left">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </div>
+
+      <div class="ribbon-scroll-arrow ribbon-scroll-right" id="ribbon-scroll-right" title="Scroll Right">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </div>
+
+    </header>
+
+    <!-- Number Line Configuration Modal -->
+    <div class="modal-backdrop hidden" id="modal-backdrop">
+      <div class="config-modal" id="number-line-modal" role="dialog" aria-modal="true" aria-labelledby="modal-nl-title">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <h2 id="modal-nl-title">Configure Number Line</h2>
+          </div>
+          <button class="modal-close-btn" id="btn-modal-nl-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <form id="form-number-line" class="modal-form">
+          <div class="form-grid-3">
+            <div class="form-field">
+              <label for="nl-start">Start Value</label>
+              <input type="number" id="nl-start" step="any" value="0" required />
+            </div>
+            <div class="form-field">
+              <label for="nl-end">End Value</label>
+              <input type="number" id="nl-end" step="any" value="10" required />
+            </div>
+            <div class="form-field">
+              <label for="nl-step">Step</label>
+              <input type="number" id="nl-step" step="any" min="0.0001" value="1" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label for="nl-spacing">Tick Spacing (px)</label>
+              <input type="number" id="nl-spacing" min="10" max="300" value="50" required />
+            </div>
+            <div class="form-field">
+              <label for="nl-label-interval">Label Every Nth Tick</label>
+              <input type="number" id="nl-label-interval" min="1" max="100" value="1" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field color-field">
+              <label for="nl-line-color">Line / Tick Color</label>
+              <div class="color-input-container">
+                <input type="color" id="nl-line-color" value="#1e293b" />
+                <span class="color-hex-val" id="nl-line-color-hex">#1e293b</span>
+              </div>
+            </div>
+            <div class="form-field color-field">
+              <label for="nl-label-color">Label Color</label>
+              <div class="color-input-container">
+                <input type="color" id="nl-label-color" value="#1e293b" />
+                <span class="color-hex-val" id="nl-label-color-hex">#1e293b</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Highlight Points Section -->
+          <div class="form-section">
+            <div class="section-header">
+              <label class="section-title">Highlight Points</label>
+              <button type="button" class="btn-secondary btn-sm" id="btn-add-highlight">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Add Highlight</span>
+              </button>
+            </div>
+            <div class="highlights-list" id="nl-highlights-list">
+              <!-- Dynamically rendered highlight rows -->
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="btn-modal-nl-cancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-modal-nl-submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span id="btn-modal-nl-submit-text">Insert Number Line</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Application Settings Modal -->
+    <div class="modal-backdrop hidden" id="modal-settings">
+      <div class="config-modal" style="max-width: 440px;" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <h2 id="modal-settings-title">Settings</h2>
+          </div>
+          <button class="modal-close-btn" id="btn-settings-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <form id="form-settings" class="modal-form">
+          <div class="form-field">
+            <label for="setting-desmos-key">Desmos API Key</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="setting-desmos-key" placeholder="Enter Desmos API key" style="padding-right: 36px; width: 100%; font-family: monospace;" />
+              <button type="button" id="btn-toggle-key-visibility" style="position: absolute; right: 8px; background: none; border: none; color: #888; cursor: pointer;" title="Toggle Visibility">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+            <span style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+              Key will be saved and exported as a text file named <code>desmos_api_key.txt</code>.
+            </span>
+          </div>
+          <div class="modal-footer" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="btn-settings-cancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-settings-save">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Desmos Graph Modal -->
+    <div class="modal-backdrop hidden" id="modal-desmos-graph">
+      <div class="desmos-modal-container" role="dialog" aria-modal="true" aria-labelledby="modal-desmos-title">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="20" x2="21" y2="20"></line>
+              <line x1="4" y1="3" x2="4" y2="21"></line>
+              <path d="M4 16c4-4 8-12 12-6s4 6 5 2"></path>
+            </svg>
+            <h2 id="modal-desmos-title">Insert Graph (Desmos)</h2>
+          </div>
+          <button class="modal-close-btn" id="btn-desmos-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div class="desmos-modal-body">
+          <!-- Desmos Embed Container -->
+          <div class="desmos-calculator-wrapper">
+            <div id="desmos-calculator-container"></div>
+          </div>
+
+          <!-- Desmos Settings Panel -->
+          <div class="desmos-settings-sidebar">
+            <div class="settings-section">
+              <label class="settings-section-title">Presets & Transparency</label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-graph-only" />
+                <span>Graph only (Hide axes & grid)</span>
+              </label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-transparent" checked />
+                <span>Transparent background</span>
+              </label>
+            </div>
+
+            <div class="settings-section">
+              <label class="settings-section-title">Display Elements</label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-grid" checked />
+                <span>Grid</span>
+              </label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-axis-numbers" checked />
+                <span>Axis Numbers</span>
+              </label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-minor-grid" checked />
+                <span>Minor Gridlines</span>
+              </label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-arrows" checked />
+                <span>Arrows</span>
+              </label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-degrees" />
+                <span>Degrees (Default: Radians)</span>
+              </label>
+            </div>
+
+            <div class="settings-section">
+              <label class="settings-section-title">X-Axis</label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-xaxis-visible" checked />
+                <span>Show X-Axis</span>
+              </label>
+              <div class="setting-input-row">
+                <span>Label:</span>
+                <input type="text" id="graph-setting-xaxis-label" value="x" class="setting-text-input" />
+              </div>
+              <div class="setting-bounds-grid">
+                <input type="number" step="any" id="graph-setting-xaxis-min" placeholder="Min" class="setting-number-input" />
+                <span>to</span>
+                <input type="number" step="any" id="graph-setting-xaxis-max" placeholder="Max" class="setting-number-input" />
+              </div>
+              <div class="setting-input-row">
+                <span>Step:</span>
+                <input type="number" step="any" id="graph-setting-xaxis-step" placeholder="Auto" class="setting-number-input" />
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <label class="settings-section-title">Y-Axis</label>
+              <label class="setting-checkbox-row">
+                <input type="checkbox" id="graph-setting-yaxis-visible" checked />
+                <span>Show Y-Axis</span>
+              </label>
+              <div class="setting-input-row">
+                <span>Label:</span>
+                <input type="text" id="graph-setting-yaxis-label" value="y" class="setting-text-input" />
+              </div>
+              <div class="setting-bounds-grid">
+                <input type="number" step="any" id="graph-setting-yaxis-min" placeholder="Min" class="setting-number-input" />
+                <span>to</span>
+                <input type="number" step="any" id="graph-setting-yaxis-max" placeholder="Max" class="setting-number-input" />
+              </div>
+              <div class="setting-input-row">
+                <span>Step:</span>
+                <input type="number" step="any" id="graph-setting-yaxis-step" placeholder="Auto" class="setting-number-input" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 12px; padding: 12px 16px; border-top: 1px solid var(--surface-border);">
+          <button type="button" class="btn-secondary" id="btn-desmos-cancel">Cancel</button>
+          <button type="button" class="btn-primary" id="btn-desmos-insert">Insert Graph</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fixed Circle Modal -->
+    <div class="modal-backdrop hidden" id="modal-fixed-circle">
+      <div class="config-modal" role="dialog" aria-modal="true" aria-labelledby="modal-fc-title">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9"/>
+              <line x1="12" y1="12" x2="21" y2="12" stroke="#f43f5e" stroke-width="1.8"/>
+              <circle cx="12" cy="12" r="1.5" fill="#f43f5e"/>
+            </svg>
+            <h2 id="modal-fc-title">Circle with Fixed Radius</h2>
+          </div>
+          <button class="modal-close-btn" id="btn-modal-fc-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <form id="form-fixed-circle" class="modal-form">
+          <div class="form-grid-3">
+            <div class="form-field">
+              <label for="fc-radius">Radius (pixels)</label>
+              <input type="number" id="fc-radius" min="5" max="2000" value="80" required />
+            </div>
+            <div class="form-field">
+              <label for="fc-custom-label">Label (e.g. 1km, 1m, 5cm)</label>
+              <input type="text" id="fc-custom-label" placeholder="e.g. 1km, 1m, 50cm" />
+            </div>
+            <div class="form-field">
+              <label for="fc-stroke-width">Outline Width (px)</label>
+              <input type="number" id="fc-stroke-width" min="1" max="50" value="2" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field color-field">
+              <label for="fc-stroke-color">Outline Color</label>
+              <div class="color-input-container">
+                <input type="color" id="fc-stroke-color" value="#0078d4" />
+                <span class="color-hex-val" id="fc-stroke-color-hex">#0078d4</span>
+              </div>
+            </div>
+            <div class="form-field color-field">
+              <label for="fc-fill-color">Fill Color</label>
+              <div class="color-input-container">
+                <input type="color" id="fc-fill-color" value="#ffffff" />
+                <span class="color-hex-val" id="fc-fill-color-hex">Transparent</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <label class="setting-checkbox-row">
+              <input type="checkbox" id="fc-transparent-fill" checked />
+              <span>Transparent fill (No background color)</span>
+            </label>
+            <label class="setting-checkbox-row">
+              <input type="checkbox" id="fc-show-center" checked />
+              <span>Draw center point marker</span>
+            </label>
+            <label class="setting-checkbox-row">
+              <input type="checkbox" id="fc-show-radius-line" checked />
+              <span>Draw radius guide line</span>
+            </label>
+            <label class="setting-checkbox-row">
+              <input type="checkbox" id="fc-show-label" checked />
+              <span>Display radius measurement text (e.g. r = 80px)</span>
+            </label>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="btn-modal-fc-cancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-modal-fc-submit">Insert Circle</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Angle Maker Modal -->
+    <div class="modal-backdrop hidden" id="modal-angle">
+      <div class="config-modal" role="dialog" aria-modal="true" aria-labelledby="modal-ang-title">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="20" x2="20" y2="20" stroke="#10b981"/>
+              <line x1="4" y1="20" x2="17" y2="7" stroke="#10b981"/>
+              <path d="M12 20a8 8 0 0 0-3-5" stroke="#f59e0b"/>
+            </svg>
+            <h2 id="modal-ang-title">Parametric Angle Maker</h2>
+          </div>
+          <button class="modal-close-btn" id="btn-modal-ang-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <form id="form-angle" class="modal-form">
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label for="ang-degrees">Angle (&deg; Degrees)</label>
+              <input type="number" id="ang-degrees" min="1" max="360" step="any" value="45" required />
+            </div>
+            <div class="form-field">
+              <label for="ang-label">Label</label>
+              <input type="text" id="ang-label" value="45°" placeholder="e.g. 45° or θ" />
+            </div>
+          </div>
+
+          <div class="quick-angle-presets" style="display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary btn-sm preset-angle-btn" data-angle="30">30&deg;</button>
+            <button type="button" class="btn-secondary btn-sm preset-angle-btn" data-angle="45">45&deg;</button>
+            <button type="button" class="btn-secondary btn-sm preset-angle-btn" data-angle="60">60&deg;</button>
+            <button type="button" class="btn-secondary btn-sm preset-angle-btn" data-angle="90">90&deg; (Right)</button>
+            <button type="button" class="btn-secondary btn-sm preset-angle-btn" data-angle="120">120&deg;</button>
+            <button type="button" class="btn-secondary btn-sm preset-angle-btn" data-angle="180">180&deg;</button>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label for="ang-ray-length">Ray Length (px)</label>
+              <input type="number" id="ang-ray-length" min="30" max="1000" value="120" required />
+            </div>
+            <div class="form-field">
+              <label for="ang-arc-radius">Arc Radius (px)</label>
+              <input type="number" id="ang-arc-radius" min="15" max="300" value="36" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field color-field">
+              <label for="ang-stroke-color">Ray Color</label>
+              <div class="color-input-container">
+                <input type="color" id="ang-stroke-color" value="#10b981" />
+                <span class="color-hex-val" id="ang-stroke-color-hex">#10b981</span>
+              </div>
+            </div>
+            <div class="form-field color-field">
+              <label for="ang-arc-color">Arc / Label Color</label>
+              <div class="color-input-container">
+                <input type="color" id="ang-arc-color" value="#f59e0b" />
+                <span class="color-hex-val" id="ang-arc-color-hex">#f59e0b</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <label class="setting-checkbox-row">
+              <input type="checkbox" id="ang-show-arrows" checked />
+              <span>Show ray arrowheads</span>
+            </label>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="btn-modal-ang-cancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-modal-ang-submit">Insert Angle</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Gear Maker Modal -->
+    <div class="modal-backdrop hidden" id="modal-gear">
+      <div class="config-modal" role="dialog" aria-modal="true" aria-labelledby="modal-gr-title">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"/>
+            </svg>
+            <h2 id="modal-gr-title">Parametric Gear Maker</h2>
+          </div>
+          <button class="modal-close-btn" id="btn-modal-gr-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <form id="form-gear" class="modal-form">
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label for="gr-teeth">Number of Teeth</label>
+              <input type="number" id="gr-teeth" min="4" max="60" value="12" required />
+            </div>
+            <div class="form-field">
+              <label for="gr-outer-radius">Outer Radius (px)</label>
+              <input type="number" id="gr-outer-radius" min="20" max="600" value="75" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label for="gr-inner-radius">Root / Inner Radius (px)</label>
+              <input type="number" id="gr-inner-radius" min="10" max="500" value="55" required />
+            </div>
+            <div class="form-field">
+              <label for="gr-hole-radius">Axle Hole Radius (px)</label>
+              <input type="number" id="gr-hole-radius" min="0" max="300" value="18" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field color-field">
+              <label for="gr-fill-color">Gear Body Color</label>
+              <div class="color-input-container">
+                <input type="color" id="gr-fill-color" value="#334155" />
+                <span class="color-hex-val" id="gr-fill-color-hex">#334155</span>
+              </div>
+            </div>
+            <div class="form-field color-field">
+              <label for="gr-stroke-color">Outline Color</label>
+              <div class="color-input-container">
+                <input type="color" id="gr-stroke-color" value="#f59e0b" />
+                <span class="color-hex-val" id="gr-stroke-color-hex">#f59e0b</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="btn-modal-gr-cancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-modal-gr-submit">Insert Gear</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Canvas Stage Container -->
+    <main id="stage-container"></main>
+    <input type="file" id="image-file-input" accept="image/*" hidden />
+
+    <!-- Floating Selected Image / Shape Opacity Bar -->
+    <div class="selection-opacity-bar hidden" id="selection-opacity-bar" title="Selected Image / Shape Opacity">
+      <div class="opacity-bar-icon">
+        <svg viewBox="0 0 24 24" width="14" height="14">
+          <defs>
+            <linearGradient id="bar-drop-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="50%" stop-color="transparent" />
+              <stop offset="50%" stop-color="#38bdf8" />
+            </linearGradient>
+          </defs>
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="url(#bar-drop-grad)" stroke="#38bdf8" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="opacity-bar-label">Opacity</span>
+      <input type="range" class="opacity-bar-slider" id="selection-opacity-slider" min="5" max="100" value="100" step="1" title="Adjust Opacity" />
+      <span class="opacity-bar-value" id="selection-opacity-value">100%</span>
+    </div>
+
+    <!-- Floating Vertical Quick Sliders (Brush Size & Opacity) -->
+    <div class="canvas-quick-sliders" id="canvas-quick-sliders" aria-label="Brush and Eraser Size & Opacity Controls">
+      <!-- Size Slider Pill -->
+      <div class="quick-slider-pill" id="pill-size" title="Brush / Eraser Size (Scroll or drag)">
+        <div class="quick-slider-icon" title="Size">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor">
+            <path d="M4 6c4-2 8 2 16 0" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M4 12c4-2 8 2 16 0" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M4 18c4-2 8 2 16 0" stroke-width="3.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="quick-slider-track-container" id="track-container-size">
+          <div class="quick-slider-rail"></div>
+          <div class="quick-slider-fill" id="fill-size"></div>
+          <div class="quick-slider-thumb" id="thumb-size" tabindex="0" role="slider" aria-label="Stroke Size" aria-valuemin="1" aria-valuemax="100" aria-valuenow="4">
+            <span class="quick-slider-thumb-dot"></span>
+          </div>
+          <div class="quick-slider-tooltip" id="tooltip-size">4px</div>
+        </div>
+      </div>
+
+      <!-- Opacity Slider Pill -->
+      <div class="quick-slider-pill" id="pill-opacity" title="Brush Opacity (Scroll or drag)">
+        <div class="quick-slider-icon" title="Opacity">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <defs>
+              <linearGradient id="drop-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="50%" stop-color="transparent" />
+                <stop offset="50%" stop-color="currentColor" />
+              </linearGradient>
+            </defs>
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="url(#drop-grad)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="quick-slider-track-container" id="track-container-opacity">
+          <div class="quick-slider-rail"></div>
+          <div class="quick-slider-fill" id="fill-opacity"></div>
+          <div class="quick-slider-thumb" id="thumb-opacity" tabindex="0" role="slider" aria-label="Opacity" aria-valuemin="1" aria-valuemax="100" aria-valuenow="100">
+            <span class="quick-slider-thumb-dot"></span>
+          </div>
+          <div class="quick-slider-tooltip" id="tooltip-opacity">100%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layers Sidebar Panel -->
+    <aside class="layers-panel" id="layers-panel">
+      <div class="layers-panel-header">
+        <div class="layers-panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="panel-icon">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          <span>Layers</span>
+        </div>
+        <div class="layers-panel-actions">
+          <button type="button" class="btn-layer-action" id="btn-layer-add" title="New Layer (+)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <button type="button" class="btn-layer-action" id="btn-layer-duplicate" title="Duplicate Layer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+          <button type="button" class="btn-layer-action" id="btn-layer-up" title="Move Layer Up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+          </button>
+          <button type="button" class="btn-layer-action" id="btn-layer-down" title="Move Layer Down">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <button type="button" class="btn-layer-action" id="btn-layer-delete" title="Delete Layer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div class="layers-list" id="layers-list">
+        <!-- Rendered dynamically by Layer UI Controller -->
+      </div>
+    </aside>
+
+    <!-- Bottom Status Bar -->
+    <footer class="status-bar" id="status-bar">
+      <div class="status-left">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="status-mode">Pen Tool</span>
+        </div>
+        <span class="status-divider">|</span>
+        <span id="status-coords">0, 0px</span>
+      </div>
+
+      <div class="status-center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="status-icon"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+        <span id="status-canvas-size">1152 × 648px</span>
+      </div>
+
+      <div class="status-right">
+        <div class="zoom-controls">
+          <button type="button" id="btn-zoom-reset" class="zoom-percentage-btn" title="Reset Zoom to 100% (Ctrl+0)">100%</button>
+          <button type="button" id="btn-zoom-out" class="zoom-btn" title="Zoom Out (Ctrl+Minus)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <input type="range" id="zoom-slider" min="12.5" max="800" value="100" step="any" class="zoom-slider" title="Zoom Level" />
+          <button type="button" id="btn-zoom-in" class="zoom-btn" title="Zoom In (Ctrl+Plus)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
