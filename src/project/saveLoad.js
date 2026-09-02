@@ -28,6 +28,7 @@ export class ProjectManager {
     this.updateActionButtons = options.updateActionButtons || (() => {});
     this.resetHistory = options.resetHistory || (() => {});
     this.pushInitialHistory = options.pushInitialHistory || (() => {});
+    this.rasterSelection = options.rasterSelection;
 
     // State
     this.currentFilePath = null;
@@ -110,6 +111,7 @@ export class ProjectManager {
     this.layerManager.getAllLayers().forEach((layerModel) => {
       const shapes = [];
       layerModel.konvaLayer.getChildren().forEach((node) => {
+        if (this.rasterSelection && node === this.rasterSelection.floatingSelection) return;
         const name = node.name();
         if (name === 'shape' || name === 'baked-raster') {
           if (node.getClassName() === 'Group' && node.getAttr('shapeType')) {
@@ -563,9 +565,15 @@ export class ProjectManager {
           const NodeConstructor = this.Konva[item.className];
           if (NodeConstructor) {
             const shape = new NodeConstructor(item.attrs);
-            shape.name('shape');
-            shape.draggable(true);
-            this.attachShapeEvents(shape);
+            const nodeName = item.attrs.name || 'shape';
+            shape.name(nodeName);
+            if (nodeName !== 'baked-raster' && item.attrs.draggable !== false && item.attrs.listening !== false) {
+              shape.draggable(true);
+              this.attachShapeEvents(shape);
+            } else {
+              shape.draggable(false);
+              shape.listening(false);
+            }
             layerModel.konvaLayer.add(shape);
           }
         }

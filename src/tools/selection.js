@@ -32,7 +32,7 @@ export class RasterSelectionManager {
 
     // Floating selection node
     this.floatingSelection = null;
-    this.isTransparentMode = true; // Default to Transparent selection
+    this.isTransparentMode = false; // Default to Opaque selection (preserves shape fill and colors)
 
     // Internal clipboard for raster selections
     this.clipboard = null; // { dataUrl, width, height }
@@ -102,8 +102,29 @@ export class RasterSelectionManager {
     if (this.floatingSelection) {
       this.commitSelection();
     }
+    
+    // Ensure any leftover nodes (e.g. parametric shapes) are frozen
+    this.transformer.nodes().forEach(n => {
+      if (n !== this.floatingSelection) n.draggable(false);
+    });
+    
+    this.transformer.borderEnabled(true);
     this.transformer.nodes([]);
     this.uiLayer.batchDraw();
+    this.updateActionButtons();
+  }
+
+  // --- Cancel / Clear Floating Selection without Committing ---
+  clearFloatingSelection() {
+    this.cleanupMarquees();
+    if (!this.floatingSelection) return;
+
+    this.floatingSelection.destroy();
+    this.floatingSelection = null;
+    this.transformer.borderEnabled(true);
+    this.transformer.nodes([]);
+    this.uiLayer.batchDraw();
+    this.activeLayer.batchDraw();
     this.updateActionButtons();
   }
 
@@ -112,16 +133,41 @@ export class RasterSelectionManager {
     this.cleanupMarquees();
     if (!this.floatingSelection) return;
 
-    const node = this.floatingSelection;
+    const group = this.floatingSelection;
     this.floatingSelection = null;
+    this.transformer.borderEnabled(true);
     this.transformer.nodes([]);
     this.uiLayer.batchDraw();
 
-    // Strip all interactive event listeners and make it an inert pixel image on active layer
-    node.off('dragend transformend dragstart pointerdown click tap dblclick');
-    node.name('baked-raster');
-    node.draggable(false);
-    node.listening(false);
+    let imgNode = null;
+    if (typeof group.findOne === 'function') {
+      imgNode = group.findOne('.baked-image');
+    }
+    if (!imgNode && typeof group.image === 'function') {
+      imgNode = group;
+    }
+
+    const img = (imgNode && typeof imgNode.image === 'function') ? imgNode.image() : null;
+
+    if (img) {
+      const bakedImage = new this.Konva.Image({
+        x: group.x(),
+        y: group.y(),
+        width: group.width(),
+        height: group.height(),
+        scaleX: group.scaleX(),
+        scaleY: group.scaleY(),
+        rotation: group.rotation(),
+        image: img,
+        opacity: group.opacity(),
+        name: 'baked-raster',
+        draggable: false,
+        listening: false,
+      });
+      this.activeLayer.add(bakedImage);
+    }
+
+    group.destroy();
     this.activeLayer.batchDraw();
 
     if (!skipHistory) {
@@ -161,6 +207,12 @@ export class RasterSelectionManager {
       this.commitSelection();
     }
 
+    // Freeze any lingering nodes (e.g. parametric shapes) before clearing
+    this.transformer.nodes().forEach(n => {
+      if (n !== this.floatingSelection) n.draggable(false);
+    });
+
+    this.transformer.borderEnabled(true);
     this.transformer.nodes([]);
     this.uiLayer.batchDraw();
     this.updateActionButtons();
@@ -270,14 +322,30 @@ export class RasterSelectionManager {
 
   // --- Rasterize Rectangle Selection ---
   rasterizeRectangularSelection(box) {
-    const layerCanvas = this.activeLayer.toCanvas({ pixelRatio: 1 });
-    const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = box.width;
-    cropCanvas.height = box.height;
-    const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
-    cropCtx.drawImage(layerCanvas, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
+    if (box.width < 4 || box.height < 4) return;
 
-    const imgData = cropCtx.getImageData(0, 0, box.width, box.height);
+    // Temporarily reset stage transform to 1:1 so toCanvas uses exact logical coordinates and scale
+    const oldScale = this.stage.scaleX();
+    const oldPos = this.stage.position();
+    this.stage.scale({ x: 1, y: 1 });
+    this.stage.position({ x: 0, y: 0 });
+
+    const pRatio = window.devicePixelRatio || 1;
+    // Render exact unscaled box region directly from activeLayer
+    const cropCanvas = this.activeLayer.toCanvas({
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      pixelRatio: pRatio,
+    });
+
+    this.stage.scale({ x: oldScale, y: oldScale });
+    this.stage.position(oldPos);
+
+    const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+    cropCtx.imageSmoothingEnabled = false;
+    const imgData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
     const data = imgData.data;
 
     let hasPixels = false;
@@ -337,11 +405,32 @@ export class RasterSelectionManager {
 
     if (box.width < 4 || box.height < 4) return;
 
-    const layerCanvas = this.activeLayer.toCanvas({ pixelRatio: 1 });
+    // Temporarily reset stage transform to 1:1 so toCanvas uses exact logical coordinates and scale
+    const oldScale = this.stage.scaleX();
+    const oldPos = this.stage.position();
+    this.stage.scale({ x: 1, y: 1 });
+    this.stage.position({ x: 0, y: 0 });
+
+    const pRatio = window.devicePixelRatio || 1;
+    // Render unscaled box from activeLayer
+    const layerBoxCanvas = this.activeLayer.toCanvas({
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      pixelRatio: pRatio,
+    });
+
+    this.stage.scale({ x: oldScale, y: oldScale });
+    this.stage.position(oldPos);
+
     const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = box.width;
-    cropCanvas.height = box.height;
+    cropCanvas.width = box.width * pRatio;
+    cropCanvas.height = box.height * pRatio;
     const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+    
+    cropCtx.imageSmoothingEnabled = false;
+    cropCtx.scale(pRatio, pRatio);
 
     // Clip to lasso polygon
     cropCtx.save();
@@ -354,10 +443,10 @@ export class RasterSelectionManager {
     cropCtx.clip();
 
     // Draw the layer snapshot within the lasso clip
-    cropCtx.drawImage(layerCanvas, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
+    cropCtx.drawImage(layerBoxCanvas, 0, 0, box.width, box.height);
     cropCtx.restore();
 
-    const imgData = cropCtx.getImageData(0, 0, box.width, box.height);
+    const imgData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
     const data = imgData.data;
 
     let hasPixels = false;
@@ -391,7 +480,7 @@ export class RasterSelectionManager {
     this.clearSourceAreaPolygon(points);
 
     // Create floating selection
-    this.createFloatingNode(cropCanvas.toDataURL(), box.x, box.y, box.width, box.height);
+    this.createFloatingNode(cropCanvas.toDataURL(), box.x, box.y, box.width, box.height, true, points);
   }
 
   // --- Process Intersecting Parametric & Vector Nodes ---
@@ -404,7 +493,7 @@ export class RasterSelectionManager {
       if (node.globalCompositeOperation() === 'destination-out') return;
       if (node === this.floatingSelection) return;
 
-      const clientRect = node.getClientRect({ skipTransform: false });
+      const clientRect = node.getClientRect({ relativeTo: this.activeLayer });
       const nodeBox = {
         x: clientRect.x,
         y: clientRect.y,
@@ -436,12 +525,30 @@ export class RasterSelectionManager {
         // Partially overlapping node:
         // Render node to standalone canvas, keep remnant outside selection, destroy live node
         try {
-          const nodeCanvas = node.toCanvas({ pixelRatio: 1 });
+          const oldScale = this.stage.scaleX();
+          const oldPos = this.stage.position();
+          this.stage.scale({ x: 1, y: 1 });
+          this.stage.position({ x: 0, y: 0 });
+
+          const pRatio = window.devicePixelRatio || 1;
+          const nodeWidth = Math.max(1, Math.ceil(nodeBox.width));
+          const nodeHeight = Math.max(1, Math.ceil(nodeBox.height));
+
+          const nodeCanvas = node.toCanvas({
+            pixelRatio: pRatio,
+          });
+
+          this.stage.scale({ x: oldScale, y: oldScale });
+          this.stage.position(oldPos);
+
           const remnantCanvas = document.createElement('canvas');
-          remnantCanvas.width = Math.max(1, Math.ceil(nodeBox.width));
-          remnantCanvas.height = Math.max(1, Math.ceil(nodeBox.height));
+          remnantCanvas.width = nodeWidth * pRatio;
+          remnantCanvas.height = nodeHeight * pRatio;
           const rCtx = remnantCanvas.getContext('2d');
-          rCtx.drawImage(nodeCanvas, 0, 0);
+          
+          rCtx.imageSmoothingEnabled = false;
+          rCtx.scale(pRatio, pRatio);
+          rCtx.drawImage(nodeCanvas, 0, 0, nodeWidth, nodeHeight);
 
           rCtx.save();
           rCtx.globalCompositeOperation = 'destination-out';
@@ -491,71 +598,98 @@ export class RasterSelectionManager {
 
   // --- Clear Original Pixels from Active Layer ---
   clearSourceAreaRect(box) {
-    if (this.isTransparentMode) {
-      const punch = new this.Konva.Rect({
-        x: box.x,
-        y: box.y,
-        width: box.width,
-        height: box.height,
-        fill: '#000000',
-        globalCompositeOperation: 'destination-out',
-        name: 'shape',
-        listening: false,
-      });
-      this.activeLayer.add(punch);
-    } else {
-      const fillPatch = new this.Konva.Rect({
-        x: box.x,
-        y: box.y,
-        width: box.width,
-        height: box.height,
-        fill: this.getColor2(),
-        name: 'shape',
-        listening: false,
-      });
-      this.activeLayer.add(fillPatch);
-    }
+    const punch = new this.Konva.Rect({
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      fill: '#000000',
+      globalCompositeOperation: 'destination-out',
+      name: 'shape',
+      listening: false,
+    });
+    this.activeLayer.add(punch);
     this.activeLayer.batchDraw();
   }
 
   clearSourceAreaPolygon(points) {
-    if (this.isTransparentMode) {
-      const punch = new this.Konva.Line({
-        points: points,
-        closed: true,
-        fill: '#000000',
-        globalCompositeOperation: 'destination-out',
-        name: 'shape',
-        listening: false,
-      });
-      this.activeLayer.add(punch);
-    } else {
-      const fillPatch = new this.Konva.Line({
-        points: points,
-        closed: true,
-        fill: this.getColor2(),
-        name: 'shape',
-        listening: false,
-      });
-      this.activeLayer.add(fillPatch);
-    }
+    const punch = new this.Konva.Line({
+      points: points,
+      closed: true,
+      fill: '#000000',
+      globalCompositeOperation: 'destination-out',
+      name: 'shape',
+      listening: false,
+    });
+    this.activeLayer.add(punch);
     this.activeLayer.batchDraw();
   }
 
   // --- Create & Attach Floating Node ---
-  createFloatingNode(dataUrl, x, y, width, height) {
+  createFloatingNode(dataUrl, x, y, width, height, isLasso = false, lassoPoints = null) {
     const img = new window.Image();
     img.src = dataUrl;
     img.onload = () => {
-      const node = new this.Konva.Image({
+      let node = new this.Konva.Group({
         x: x,
         y: y,
         width: width,
         height: height,
-        image: img,
         name: 'shape',
         draggable: true,
       });
+
+      const imgNode = new this.Konva.Image({
+        x: 0,
+        y: 0,
+        width: width,
+        height: height,
+        image: img,
+        name: 'baked-image',
+      });
+      node.add(imgNode);
+
+      let outlineNode;
+
+      if (isLasso && lassoPoints) {
+        // Map absolute lasso points to group-local coordinates
+        const localPoints = lassoPoints.map((val, idx) => idx % 2 === 0 ? val - x : val - y);
+        outlineNode = new this.Konva.Line({
+          points: localPoints,
+          stroke: '#0078d4',
+          strokeWidth: 1.5,
+          dash: [5, 5],
+          closed: true,
+          hitStrokeWidth: 0,
+          listening: false,
+          strokeScaleEnabled: false, // Remains thin on resize
+          name: 'lasso-outline',
+        });
+      } else {
+        outlineNode = new this.Konva.Rect({
+          x: 0,
+          y: 0,
+          width: width,
+          height: height,
+          stroke: '#0078d4',
+          strokeWidth: 1.5,
+          dash: [5, 5],
+          hitStrokeWidth: 0,
+          listening: false,
+          strokeScaleEnabled: false,
+          name: 'lasso-outline', // Keep the same name so commitSelection strips it correctly
+        });
+      }
+
+      node.add(outlineNode);
+
+      // Marching ants animation
+      const anim = new this.Konva.Animation((frame) => {
+        outlineNode.dashOffset(-(frame.time / 1000) * 20);
+      }, this.activeLayer);
+      anim.start();
+      node.on('destroy', () => anim.stop());
+      outlineNode.on('destroy', () => anim.stop());
 
       this.activeLayer.add(node);
       this.floatingSelection = node;
@@ -563,16 +697,12 @@ export class RasterSelectionManager {
       // Configure transformer for non-uniform scaling
       this.transformer.keepRatio(false);
       this.transformer.centeredScaling(false);
+      this.transformer.borderEnabled(false);
       this.transformer.nodes([node]);
-
-      // Wire drag and transform history
-      node.on('dragend', () => this.saveHistory());
-      node.on('transformend', () => this.saveHistory());
 
       this.activeLayer.batchDraw();
       this.uiLayer.batchDraw();
       this.updateActionButtons();
-      this.saveHistory();
     };
   }
 
@@ -581,6 +711,14 @@ export class RasterSelectionManager {
     if (!this.floatingSelection) return;
 
     const current = this.floatingSelection;
+    const imgNode = (typeof current.findOne === 'function')
+      ? current.findOne('.baked-image')
+      : current;
+    
+    if (!imgNode || typeof imgNode.image !== 'function') return;
+    const img = imgNode.image();
+    if (!img) return;
+
     // Create a clone and stamp it permanently at the current position
     const clone = new this.Konva.Image({
       x: current.x(),
@@ -590,7 +728,8 @@ export class RasterSelectionManager {
       scaleX: current.scaleX(),
       scaleY: current.scaleY(),
       rotation: current.rotation(),
-      image: current.image(),
+      image: img,
+      opacity: current.opacity(),
       name: 'baked-raster',
       draggable: false,
       listening: false,
@@ -609,6 +748,7 @@ export class RasterSelectionManager {
 
     this.floatingSelection.destroy();
     this.floatingSelection = null;
+    this.transformer.borderEnabled(true);
     this.transformer.nodes([]);
     this.uiLayer.batchDraw();
     this.activeLayer.batchDraw();
@@ -621,14 +761,61 @@ export class RasterSelectionManager {
   copySelection() {
     if (!this.floatingSelection) return false;
 
-    const img = this.floatingSelection.image();
+    let imgNode = null;
+    if (typeof this.floatingSelection.findOne === 'function') {
+      imgNode = this.floatingSelection.findOne('.baked-image');
+    }
+    if (!imgNode && typeof this.floatingSelection.image === 'function') {
+      imgNode = this.floatingSelection;
+    }
+    if (!imgNode || typeof imgNode.image !== 'function') return false;
+
+    const img = imgNode.image();
     if (!img) return false;
 
+    const scaleX = Math.abs(this.floatingSelection.scaleX() || 1);
+    const scaleY = Math.abs(this.floatingSelection.scaleY() || 1);
+    const curWidth = Math.max(1, Math.round(this.floatingSelection.width() * scaleX));
+    const curHeight = Math.max(1, Math.round(this.floatingSelection.height() * scaleY));
+
+    let dataUrl = img.src || (img.toDataURL ? img.toDataURL() : '');
+    // If the floating selection was scaled, bake it into a fresh unscaled canvas snapshot
+    if (scaleX !== 1 || scaleY !== 1) {
+      try {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = curWidth;
+        offCanvas.height = curHeight;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.imageSmoothingEnabled = false;
+        offCtx.drawImage(img, 0, 0, curWidth, curHeight);
+        dataUrl = offCanvas.toDataURL();
+      } catch (e) {
+        console.warn('Could not re-scale clipboard image:', e);
+      }
+    }
+
     this.clipboard = {
-      dataUrl: img.src || (img.toDataURL ? img.toDataURL() : ''),
-      width: this.floatingSelection.width() * Math.abs(this.floatingSelection.scaleX() || 1),
-      height: this.floatingSelection.height() * Math.abs(this.floatingSelection.scaleY() || 1),
+      dataUrl: dataUrl,
+      width: curWidth,
+      height: curHeight,
+      origX: Math.round(this.floatingSelection.x()),
+      origY: Math.round(this.floatingSelection.y()),
     };
+    this.pasteCount = 0;
+
+    // Also write PNG blob to system clipboard if supported
+    try {
+      if (navigator.clipboard && window.ClipboardItem && dataUrl.startsWith('data:image')) {
+        fetch(dataUrl)
+          .then((res) => res.blob())
+          .then((blob) => {
+            navigator.clipboard.write([
+              new ClipboardItem({ [blob.type || 'image/png']: blob }),
+            ]).catch(() => {});
+          }).catch(() => {});
+      }
+    } catch (e) {}
+
     return true;
   }
 
@@ -643,14 +830,35 @@ export class RasterSelectionManager {
 
   // --- Action: Paste Clipboard Selection ---
   pasteSelection() {
-    if (!this.clipboard) return false;
+    if (!this.clipboard || !this.clipboard.dataUrl) return false;
 
+    // Commit any currently active selection before pasting
     this.commitSelection();
 
-    // Paste near top-left of canvas or center
-    const x = 30;
-    const y = 30;
-    this.createFloatingNode(this.clipboard.dataUrl, x, y, this.clipboard.width, this.clipboard.height);
+    this.pasteCount = (this.pasteCount || 0) + 1;
+    const offset = this.pasteCount * 20;
+
+    let targetX = 30;
+    let targetY = 30;
+
+    if (this.clipboard.origX !== undefined && this.clipboard.origY !== undefined) {
+      targetX = this.clipboard.origX + offset;
+      targetY = this.clipboard.origY + offset;
+    }
+
+    if (this.setTool) {
+      this.setTool('select-rect');
+    }
+
+    this.createFloatingNode(
+      this.clipboard.dataUrl,
+      targetX,
+      targetY,
+      this.clipboard.width,
+      this.clipboard.height,
+      false
+    );
+
     return true;
   }
 }

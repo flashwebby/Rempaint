@@ -54,6 +54,20 @@
           </div>
           <span class="menu-tab">Edit</span>
           <span class="menu-tab active">View</span>
+          <div class="menu-tab-container" id="help-menu-container">
+            <span class="menu-tab" id="menu-tab-help" tabindex="0">Help</span>
+            <div class="dropdown-menu hidden" id="help-dropdown-menu">
+              <button type="button" class="dropdown-item" id="menu-help-check-update">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>Check for Updates...</span>
+              </button>
+              <div class="dropdown-divider"></div>
+              <button type="button" class="dropdown-item" id="menu-help-report">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <span>Report a Bug...</span>
+              </button>
+            </div>
+          </div>
         </div>
         <div class="quick-access">
           <button class="action-btn icon-btn" title="Save" id="btn-save">
@@ -121,18 +135,6 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"></rect><circle cx="8" cy="9" r="1.5"></circle><path d="m4 17 5-5 3 3 2-2 6 6"></path></svg>
                 <span>Open</span>
               </button>
-            </div>
-            <div class="ribbon-col-small image-opacity-col">
-              <div class="ribbon-opacity-control" title="Adjust Selected Image / Shape Opacity">
-                <div class="opacity-label-row">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#38bdf8" stroke-width="2.2">
-                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-                  </svg>
-                  <span>Opacity</span>
-                  <span id="ribbon-image-opacity-val">100%</span>
-                </div>
-                <input type="range" id="ribbon-image-opacity" min="5" max="100" value="100" step="1" class="ribbon-opacity-slider" title="Opacity" />
-              </div>
             </div>
           </div>
           <div class="group-label">Image</div>
@@ -295,8 +297,9 @@
             <div class="stroke-preview-box">
               <div class="stroke-preview-line" id="stroke-preview-line"></div>
             </div>
-            <input type="range" id="stroke-width" min="1" max="50" value="4" title="Stroke Width" />
-            <span id="stroke-width-val">4px</span>
+            <input type="range" id="stroke-width" min="1" max="200" value="4" title="Stroke Width" />
+            <input type="number" id="stroke-width-input" min="1" max="200" value="4" title="Exact Stroke Width" style="width: 45px; text-align: right; margin-left: 4px; padding: 1px 2px; font-size: 11px; border: 1px solid #ccc; border-radius: 2px;" />
+            <span style="margin-left: 2px;">px</span>
           </div>
           <div class="group-label">Size</div>
         </div>
@@ -862,6 +865,9 @@
 
     <!-- Canvas Stage Container -->
     <main id="stage-container"></main>
+    <div id="brush-cursor" class="brush-cursor hidden">
+      <div class="brush-cursor-crosshair"></div>
+    </div>
     <input type="file" id="image-file-input" accept="image/*" hidden />
 
     <!-- Floating Selected Image / Shape Opacity Bar -->
@@ -990,5 +996,32 @@
         </div>
       </div>
     </footer>
+
+    <!-- Non-blocking Auto-Update Toast Notification -->
+    <div id="update-toast" class="update-toast hidden" role="alert" aria-live="polite">
+      <div class="update-toast-header">
+        <div class="update-toast-title">
+          <svg class="update-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span id="update-toast-title-text">Update Available</span>
+          <span class="update-badge" id="update-badge-version"></span>
+        </div>
+        <button type="button" class="update-toast-close" id="btn-update-close" title="Dismiss">&times;</button>
+      </div>
+      <div class="update-toast-body" id="update-toast-body">
+        A new version of Rempaint is available.
+      </div>
+      <div class="update-toast-progress hidden" id="update-progress-container">
+        <div class="update-progress-track">
+          <div class="update-progress-bar" id="update-progress-bar"></div>
+        </div>
+        <span class="update-progress-text" id="update-progress-text">Downloading update...</span>
+      </div>
+      <div class="update-toast-actions" id="update-toast-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-update-later">Remind me later</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-update-now">Update now</button>
+      </div>
+    </div>
   </body>
 </html>

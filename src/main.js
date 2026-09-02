@@ -16,6 +16,7 @@ import {
   createParametricGearGroup,
 } from './tools/parametricTools.js';
 import { ProjectManager } from './project/saveLoad.js';
+import { initAutoUpdater } from './updater.js';
 
 // Initialize when DOM and Konva are ready
 function initApp() {
@@ -27,6 +28,7 @@ function initApp() {
 
   // --- UI Elements ---
   const stageContainer = document.getElementById('stage-container');
+  const brushCursor = document.getElementById('brush-cursor');
   const toolButtons = document.querySelectorAll('.tool-btn');
   const strokeColorInput = document.getElementById('stroke-color');
   const slotColor1 = document.getElementById('slot-color-1');
@@ -35,7 +37,7 @@ function initApp() {
   const color2Preview = document.getElementById('color-2-preview');
   const paletteDots = document.querySelectorAll('.palette-dot');
   const strokeWidthInput = document.getElementById('stroke-width');
-  const strokeWidthVal = document.getElementById('stroke-width-val');
+  const strokeWidthNumeric = document.getElementById('stroke-width-input');
   const strokePreviewLine = document.getElementById('stroke-preview-line');
   const btnUndo = document.getElementById('btn-undo');
   const btnRedo = document.getElementById('btn-redo');
@@ -57,6 +59,7 @@ function initApp() {
   const zoomSlider = document.getElementById('zoom-slider');
   const btnNewNumberLine = document.getElementById('btn-new-number-line');
   const btnDeselectAll = document.getElementById('btn-deselect-all');
+  let isPointerInStage = false;
 
   // File Menu Dropdown Elements
   const menuTabFile = document.getElementById('menu-tab-file');
@@ -66,6 +69,15 @@ function initApp() {
   const menuFileSave = document.getElementById('menu-file-save');
   const menuFileSaveAs = document.getElementById('menu-file-save-as');
   const menuFileExport = document.getElementById('menu-file-export');
+
+  // Help Menu Dropdown Elements
+  const menuTabHelp = document.getElementById('menu-tab-help');
+  const helpDropdownMenu = document.getElementById('help-dropdown-menu');
+  const menuHelpCheckUpdate = document.getElementById('menu-help-check-update');
+  const menuHelpReport = document.getElementById('menu-help-report');
+
+  // Auto-updater engine
+  const autoUpdater = initAutoUpdater();
 
   // Insert Graph & Settings UI
   const btnInsertGraph = document.getElementById('btn-insert-graph');
@@ -176,6 +188,7 @@ function initApp() {
 
     updateStatusZoom();
     if (typeof updateSelectionOpacityBar === 'function') updateSelectionOpacityBar();
+    if (typeof updateBrushCursorSize === 'function') updateBrushCursorSize();
     backgroundLayer.batchDraw();
     uiLayer.batchDraw();
     stage.batchDraw();
@@ -445,6 +458,7 @@ function initApp() {
     layerManager,
     uiLayer,
     transformer,
+    rasterSelection,
     Konva,
     artboard,
     applyArtboardDimensions,
@@ -506,6 +520,94 @@ function initApp() {
       menuFileExport.addEventListener('click', () => {
         fileDropdownMenu.classList.add('hidden');
         exportCanvas();
+      });
+    }
+  }
+
+  // --- Help Menu Dropdown Interaction & Bug Report ---
+  async function openBugReport() {
+    let version = 'unknown';
+    let osInfo = 'unknown';
+    const tauri = window.__TAURI__;
+
+    if (tauri) {
+      try {
+        if (tauri.app && typeof tauri.app.getVersion === 'function') {
+          version = await tauri.app.getVersion();
+        }
+      } catch (e) {
+        console.warn('Failed to get app version:', e);
+      }
+
+      try {
+        if (tauri.os) {
+          const type = typeof tauri.os.type === 'function' ? await tauri.os.type() : 'unknown';
+          const ver = typeof tauri.os.version === 'function' ? await tauri.os.version() : 'unknown';
+          osInfo = `${type} ${ver}`;
+        }
+      } catch (e) {
+        console.warn('Failed to get OS info:', e);
+      }
+    }
+
+    const template = `**Steps to reproduce:**
+1. 
+2. 
+
+**Expected behavior:**
+
+
+**Actual behavior:**
+
+
+**System info** (auto-filled, please leave as-is):
+- Rempaint version: ${version}
+- OS: ${osInfo}
+- Zoom level at time of report: ${Math.round(zoomLevel * 100)}%
+
+*Screenshots are welcome — you can drag and drop an image directly into this box on GitHub.*`;
+
+    const encodedBody = encodeURIComponent(template);
+    const url = `https://github.com/flashwebby/Rempaint/issues/new?title=&body=${encodedBody}`;
+
+    if (tauri && tauri.core && typeof tauri.core.invoke === 'function') {
+      // In Tauri v2, opening URLs is handled by the opener plugin, not shell.
+      tauri.core.invoke('plugin:opener|open_url', { url: url })
+        .catch(() => tauri.core.invoke('plugin:opener|open_path', { path: url }))
+        .catch(() => tauri.core.invoke('plugin:opener|open', { path: url }))
+        .catch(() => tauri.core.invoke('plugin:shell|open', { path: url }))
+        .catch((e) => console.error('Bug report open failed:', e));
+    } else {
+      // In a regular browser environment, open synchronously to bypass popup blockers
+      window.open(url, '_blank');
+    }
+  }
+
+  if (menuTabHelp && helpDropdownMenu) {
+    menuTabHelp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      helpDropdownMenu.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!helpDropdownMenu.contains(e.target) && e.target !== menuTabHelp) {
+        helpDropdownMenu.classList.add('hidden');
+      }
+    });
+
+    if (menuHelpCheckUpdate) {
+      menuHelpCheckUpdate.addEventListener('click', () => {
+        helpDropdownMenu.classList.add('hidden');
+        if (autoUpdater && typeof autoUpdater.checkForUpdates === 'function') {
+          autoUpdater.checkForUpdates();
+        }
+      });
+    }
+
+    if (menuHelpReport) {
+      menuHelpReport.addEventListener('click', () => {
+        helpDropdownMenu.classList.add('hidden');
+        openBugReport();
       });
     }
   }
@@ -627,6 +729,9 @@ function initApp() {
         const curNodes = transformer.nodes();
         const validNodes = curNodes.filter((n) => n.getLayer() === activeLayer);
         if (validNodes.length !== curNodes.length) {
+          curNodes.forEach((n) => {
+            if (!validNodes.includes(n)) n.draggable(false);
+          });
           transformer.nodes(validNodes);
           uiLayer.batchDraw();
           updateActionButtons();
@@ -783,6 +888,7 @@ function initApp() {
     layerManager.getAllLayers().forEach((layerModel) => {
       const shapes = [];
       layerModel.konvaLayer.getChildren().forEach((node) => {
+        if (rasterSelection && node === rasterSelection.floatingSelection) return;
         const name = node.name();
         if (name === 'shape' || name === 'baked-raster') {
           if (node.getClassName() === 'Group' && node.getAttr('shapeType')) {
@@ -890,7 +996,9 @@ function initApp() {
   function restoreState(serializedState) {
     if (!serializedState) return;
     const thisRestore = ++restoreVersion;
-    rasterSelection.commitSelection(true);
+    if (rasterSelection && rasterSelection.hasActiveSelection()) {
+      rasterSelection.clearFloatingSelection();
+    }
     transformer.nodes([]);
     uiLayer.batchDraw();
 
@@ -1010,8 +1118,14 @@ function initApp() {
             const NodeConstructor = Konva[item.className];
             if (NodeConstructor) {
               const shape = new NodeConstructor(item.attrs);
-              shape.name('shape');
-              attachShapeEvents(shape);
+              const nodeName = item.attrs.name || 'shape';
+              shape.name(nodeName);
+              if (nodeName !== 'baked-raster' && item.attrs.draggable !== false && item.attrs.listening !== false) {
+                attachShapeEvents(shape);
+              } else {
+                shape.draggable(false);
+                shape.listening(false);
+              }
               layerModel.konvaLayer.add(shape);
             }
           }
@@ -1056,8 +1170,6 @@ function initApp() {
   const selectionOpacityBar = document.getElementById('selection-opacity-bar');
   const selectionOpacitySlider = document.getElementById('selection-opacity-slider');
   const selectionOpacityValue = document.getElementById('selection-opacity-value');
-  const ribbonImageOpacity = document.getElementById('ribbon-image-opacity');
-  const ribbonImageOpacityVal = document.getElementById('ribbon-image-opacity-val');
 
   function syncAngleHandles() {
     const selectedNodes = transformer.nodes();
@@ -1088,7 +1200,6 @@ function initApp() {
 
     if (!selectedNode) {
       selectionOpacityBar.classList.add('hidden');
-      if (ribbonImageOpacity) ribbonImageOpacity.disabled = true;
       return;
     }
 
@@ -1097,19 +1208,15 @@ function initApp() {
 
     if (selectionOpacitySlider) selectionOpacitySlider.value = pct;
     if (selectionOpacityValue) selectionOpacityValue.textContent = `${pct}%`;
-    if (ribbonImageOpacity) {
-      ribbonImageOpacity.disabled = false;
-      ribbonImageOpacity.value = pct;
-    }
-    if (ribbonImageOpacityVal) ribbonImageOpacityVal.textContent = `${pct}%`;
 
     // Position floating bar right above the selected node
     try {
       const stageBox = stageContainer.getBoundingClientRect();
-      const nodeRect = selectedNode.getClientRect({ skipTransform: false });
+      const nodeRect = selectedNode.getClientRect(); // gets coordinates in stage (absolute) space
 
-      const screenX = stageBox.left + (nodeRect.x * zoomLevel) + stage.x() + (nodeRect.width * zoomLevel) / 2;
-      const screenY = stageBox.top + (nodeRect.y * zoomLevel) + stage.y() - 14;
+      // Convert absolute canvas coordinates to screen coordinates by accounting for container scroll (pan)
+      const screenX = stageBox.left - stageContainer.scrollLeft + nodeRect.x + nodeRect.width / 2;
+      const screenY = stageBox.top - stageContainer.scrollTop + nodeRect.y - 14;
 
       selectionOpacityBar.style.left = `${Math.max(140, Math.min(window.innerWidth - 140, screenX))}px`;
       selectionOpacityBar.style.top = `${Math.max(150, screenY)}px`;
@@ -1137,19 +1244,12 @@ function initApp() {
 
     const pctRound = Math.round(pct);
     if (selectionOpacityValue) selectionOpacityValue.textContent = `${pctRound}%`;
-    if (ribbonImageOpacityVal) ribbonImageOpacityVal.textContent = `${pctRound}%`;
     if (selectionOpacitySlider && selectionOpacitySlider.value != pctRound) selectionOpacitySlider.value = pctRound;
-    if (ribbonImageOpacity && ribbonImageOpacity.value != pctRound) ribbonImageOpacity.value = pctRound;
   }
 
   if (selectionOpacitySlider) {
     selectionOpacitySlider.addEventListener('input', (e) => setSelectionOpacity(parseFloat(e.target.value)));
     selectionOpacitySlider.addEventListener('change', () => saveHistory());
-  }
-
-  if (ribbonImageOpacity) {
-    ribbonImageOpacity.addEventListener('input', (e) => setSelectionOpacity(parseFloat(e.target.value)));
-    ribbonImageOpacity.addEventListener('change', () => saveHistory());
   }
 
   function updateActionButtons() {
@@ -1369,6 +1469,11 @@ function initApp() {
       rasterSelection.commitSelection();
     }
 
+    // Ensure any parametric shapes left in the transformer are frozen before clearing
+    transformer.nodes().forEach((n) => n.draggable(false));
+    transformer.nodes([]);
+    uiLayer.batchDraw();
+
     currentTool = toolName;
     document.querySelectorAll('.tool-btn').forEach((btn) => {
       if (btn.dataset.tool === toolName) btn.classList.add('active');
@@ -1420,6 +1525,16 @@ function initApp() {
         quickSliders.classList.remove('hidden');
       } else {
         quickSliders.classList.add('hidden');
+      }
+    }
+
+    if (brushCursor) {
+      if (currentTool === 'pen' || currentTool === 'eraser') {
+        stageContainer.classList.add('hide-native-cursor');
+        if (isPointerInStage) brushCursor.classList.remove('hidden');
+      } else {
+        stageContainer.classList.remove('hide-native-cursor');
+        brushCursor.classList.add('hidden');
       }
     }
 
@@ -1517,8 +1632,8 @@ function initApp() {
   const tooltipOpacity = document.getElementById('tooltip-opacity');
 
   function syncQuickSliders() {
-    // Size (1 to 100px)
-    const sizePct = Math.max(0, Math.min(1, (currentStrokeWidth - 1) / (100 - 1)));
+    // Size (1 to 200px)
+    const sizePct = Math.max(0, Math.min(1, (currentStrokeWidth - 1) / (200 - 1)));
     if (fillSize) fillSize.style.height = `${sizePct * 100}%`;
     if (thumbSize) {
       thumbSize.style.bottom = `${sizePct * 100}%`;
@@ -1536,14 +1651,24 @@ function initApp() {
     if (tooltipOpacity) tooltipOpacity.textContent = `${Math.round(currentOpacity * 100)}%`;
   }
 
+  // --- Brush Cursor Update ---
+  function updateBrushCursorSize() {
+    if (brushCursor) {
+      const scaledSize = currentStrokeWidth * stage.scaleX();
+      brushCursor.style.width = `${scaledSize}px`;
+      brushCursor.style.height = `${scaledSize}px`;
+    }
+  }
+
   // --- Stroke Width Controls ---
   function updateStrokeWidth(width) {
-    currentStrokeWidth = Math.max(1, Math.min(100, width));
+    currentStrokeWidth = Math.max(1, Math.min(200, width));
     strokeWidthInput.value = currentStrokeWidth;
-    strokeWidthVal.textContent = `${currentStrokeWidth}px`;
+    if (strokeWidthNumeric) strokeWidthNumeric.value = currentStrokeWidth;
     strokePreviewLine.style.height = `${Math.min(currentStrokeWidth, 20)}px`;
     strokePreviewLine.style.borderRadius = `${currentStrokeWidth / 2}px`;
     syncQuickSliders();
+    updateBrushCursorSize();
 
     if ((currentTool === 'select-rect' || currentTool === 'select-lasso') && transformer.nodes().length > 0) {
       let modified = false;
@@ -1586,6 +1711,9 @@ function initApp() {
   }
 
   strokeWidthInput.addEventListener('input', (e) => updateStrokeWidth(parseInt(e.target.value, 10)));
+  if (strokeWidthNumeric) {
+    strokeWidthNumeric.addEventListener('input', (e) => updateStrokeWidth(parseInt(e.target.value, 10)));
+  }
 
   function setupVerticalSlider(trackContainer, pill, thumb, onValueChange, getValueRatio) {
     if (!trackContainer || !pill) return;
@@ -1639,10 +1767,10 @@ function initApp() {
     pillSize,
     thumbSize,
     (ratio) => {
-      const newWidth = Math.round(1 + ratio * 99);
+      const newWidth = Math.round(1 + ratio * 199);
       updateStrokeWidth(newWidth);
     },
-    () => (currentStrokeWidth - 1) / 99
+    () => (currentStrokeWidth - 1) / 199
   );
 
   setupVerticalSlider(
@@ -1764,11 +1892,24 @@ function initApp() {
   }
 
   function pickCanvasColor(pos) {
-    const canvas = stage.toCanvas({ pixelRatio: 1 });
+    const oldScale = stage.scaleX();
+    const oldPos = stage.position();
+    stage.scale({ x: 1, y: 1 });
+    stage.position({ x: 0, y: 0 });
+
+    const canvas = stage.toCanvas({
+      x: pos.x,
+      y: pos.y,
+      width: 1,
+      height: 1,
+      pixelRatio: 1
+    });
+
+    stage.scale({ x: oldScale, y: oldScale });
+    stage.position(oldPos);
+
     const context = canvas.getContext('2d');
-    const x = Math.max(0, Math.min(canvas.width - 1, Math.round(pos.x)));
-    const y = Math.max(0, Math.min(canvas.height - 1, Math.round(pos.y)));
-    const [r, g, b] = context.getImageData(x, y, 1, 1).data;
+    const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
     updateColor(`#${[r, g, b].map((part) => part.toString(16).padStart(2, '0')).join('')}`);
   }
 
@@ -1792,12 +1933,23 @@ function initApp() {
     if (!activeLayer) return;
 
     uiLayer.visible(false);
+
+    const oldScale = stage.scaleX();
+    const oldPos = stage.position();
+    stage.scale({ x: 1, y: 1 });
+    stage.position({ x: 0, y: 0 });
+
     const canvas = stage.toCanvas({
       x: artboard.x,
       y: artboard.y,
       width: artboard.width,
       height: artboard.height,
+      pixelRatio: 1
     });
+
+    stage.scale({ x: oldScale, y: oldScale });
+    stage.position(oldPos);
+
     uiLayer.visible(true);
 
     const ctx = canvas.getContext('2d');
@@ -2049,7 +2201,7 @@ function initApp() {
       case 'eraser': {
         currentShape = new Konva.Line({
           stroke: '#000000',
-          strokeWidth: Math.max(currentStrokeWidth * 3, 12),
+          strokeWidth: currentStrokeWidth,
           opacity: currentOpacity,
           lineCap: 'round',
           lineJoin: 'round',
@@ -2138,6 +2290,13 @@ function initApp() {
       const relX = Math.round(pos.x - artboard.x);
       const relY = Math.round(pos.y - artboard.y);
       statusCoords.textContent = `${relX}, ${relY}px`;
+    }
+
+    if (brushCursor && (currentTool === 'pen' || currentTool === 'eraser')) {
+      if (e.evt) {
+        brushCursor.style.left = `${e.evt.pageX}px`;
+        brushCursor.style.top = `${e.evt.pageY}px`;
+      }
     }
 
     // Handle Raster Selection Tools
@@ -2284,6 +2443,21 @@ function initApp() {
     isDrawing = false;
   });
 
+
+  stageContainer.addEventListener('pointerenter', () => {
+    isPointerInStage = true;
+    if (brushCursor && (currentTool === 'pen' || currentTool === 'eraser')) {
+      brushCursor.classList.remove('hidden');
+    }
+  });
+
+  stageContainer.addEventListener('pointerleave', () => {
+    isPointerInStage = false;
+    if (brushCursor) {
+      brushCursor.classList.add('hidden');
+    }
+  });
+
   // --- Toolbar Actions ---
   btnUndo.addEventListener('click', undo);
   btnRedo.addEventListener('click', redo);
@@ -2321,6 +2495,68 @@ function initApp() {
       saveHistory();
     }
   });
+
+  // --- Shape Clipboard (Vector & Parametric Copy/Paste) ---
+  let shapeClipboard = null;
+  let shapePasteCount = 0;
+  let lastClipboardType = null;
+
+  function copySelectedShapes() {
+    const nodes = transformer.nodes();
+    if (!nodes || nodes.length === 0) return false;
+
+    shapeClipboard = nodes.map((node) => ({
+      clone: node.clone(),
+      origX: node.x(),
+      origY: node.y(),
+    }));
+    shapePasteCount = 0;
+    lastClipboardType = 'shape';
+    return true;
+  }
+
+  function cutSelectedShapes() {
+    if (copySelectedShapes()) {
+      btnDelete.click();
+      return true;
+    }
+    return false;
+  }
+
+  function pasteSelectedShapes() {
+    if (!shapeClipboard || shapeClipboard.length === 0) return false;
+
+    const activeModel = layerManager.getActiveLayerModel();
+    if (!activeModel || !activeModel.visible || activeModel.locked) return false;
+    const activeLayer = activeModel.konvaLayer;
+
+    // Deselect current transformer nodes
+    transformer.nodes().forEach((n) => n.draggable(false));
+    transformer.nodes([]);
+
+    shapePasteCount++;
+    const offset = shapePasteCount * 20;
+
+    const newNodes = [];
+    shapeClipboard.forEach((item) => {
+      const newNode = item.clone.clone();
+      newNode.position({
+        x: item.origX + offset,
+        y: item.origY + offset,
+      });
+      newNode.draggable(true);
+      activeLayer.add(newNode);
+      attachShapeEvents(newNode);
+      newNodes.push(newNode);
+    });
+
+    transformer.nodes(newNodes);
+    activeLayer.batchDraw();
+    uiLayer.batchDraw();
+    updateActionButtons();
+    saveHistory();
+    return true;
+  }
 
   async function exportCanvas() {
     const prev = transformer.nodes();
@@ -3112,16 +3348,30 @@ function initApp() {
       if (rasterSelection.hasActiveSelection()) {
         e.preventDefault();
         rasterSelection.copySelection();
+        lastClipboardType = 'raster';
+      } else if (transformer.nodes().length > 0) {
+        e.preventDefault();
+        copySelectedShapes();
       }
     } else if (e.ctrlKey && key === 'x') {
       if (rasterSelection.hasActiveSelection()) {
         e.preventDefault();
         rasterSelection.cutSelection();
+        lastClipboardType = 'raster';
+      } else if (transformer.nodes().length > 0) {
+        e.preventDefault();
+        cutSelectedShapes();
       }
     } else if (e.ctrlKey && key === 'v') {
-      if (rasterSelection.clipboard) {
+      if (lastClipboardType === 'shape' && shapeClipboard && shapeClipboard.length > 0) {
+        e.preventDefault();
+        pasteSelectedShapes();
+      } else if (rasterSelection.clipboard) {
         e.preventDefault();
         rasterSelection.pasteSelection();
+      } else if (shapeClipboard && shapeClipboard.length > 0) {
+        e.preventDefault();
+        pasteSelectedShapes();
       }
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (rasterSelection.hasActiveSelection()) {
@@ -3156,7 +3406,14 @@ function initApp() {
 
   window.addEventListener('paste', (event) => {
     if (activeTextarea || document.getElementById('math-editor-popover')) return;
+
+    if (lastClipboardType === 'shape' && shapeClipboard && shapeClipboard.length > 0) {
+      event.preventDefault();
+      pasteSelectedShapes();
+      return;
+    }
     if (rasterSelection.clipboard) {
+      event.preventDefault();
       rasterSelection.pasteSelection();
       return;
     }
